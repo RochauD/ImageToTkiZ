@@ -7,6 +7,9 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+
 #include <iostream>
 #include <math.h>
 #include <string.h>
@@ -103,7 +106,7 @@ static void findSquares( const Mat& image, vector<vector<Point> >& squares, vect
     pyrUp(pyr, timg, image.size());
     vector<vector<Point> > contours;
 
-    // find squares in every color plane of the image
+    // find squares in every c olor plane of the image
     for( int c = 0; c < 3; c++ )
     {
         int ch[] = {c, 0};
@@ -227,6 +230,67 @@ vector<vector<Point> > removeDuplicateRectangles(vector<vector<Point> > &squares
 
 }
 
+vector<Vec4i> findLines(Mat &src, Mat &dst, Mat &color_dst)
+{
+  
+    Canny( src, dst, 50, 200, 3 );
+    cvtColor( dst, color_dst, COLOR_GRAY2BGR );
+
+    vector<Vec4i> lines;
+    HoughLinesP( dst, lines, 1, CV_PI/180, 80, 50, 5 );
+
+    return lines;
+}
+
+void drawLines(vector<Vec4i> lines, Mat &dst, Mat &color_dst)
+{
+
+    for( size_t i = 0; i < lines.size(); i++ )
+    {
+        line( color_dst, Point(lines[i][0], lines[i][1]),
+            Point(lines[i][2], lines[i][3]), Scalar(0,0,255), 3, 8 );
+    }
+
+    namedWindow( "Detected Lines", 1 );
+    imshow( "Detected Lines", color_dst );
+
+}
+
+void removeRedundantLines(vector<Vec4i> &lines, vector<vector<Point> > &squares)
+{
+
+    auto line = lines.begin();
+
+    int radius = 150;
+    while(line != lines.end()) 
+    {
+        bool removed = false;
+
+        for(auto square : squares) 
+        {
+            for(int i = 0; i < 4; ++i) {
+
+                if(sqrt(pow(abs(square[i].x - (*line)[0]), 2) + pow(abs(square[i].y - (*line)[1]), 2)) < radius &&
+                    sqrt(pow(abs(square[(i+1)%4].x - (*line)[2]), 2) + pow(abs(square[(i+1)%4].y - (*line)[3]), 2)) < radius )
+                {
+
+                   line = lines.erase(line);
+                   removed = true;
+                   break;
+
+                }
+
+            }
+        }
+
+        if(!removed)
+        {
+            ++line;
+        }
+    }
+
+}
+
 int main(int argc, char** argv)
 {
     vector<Point> midpoints;
@@ -237,7 +301,7 @@ int main(int argc, char** argv)
     if (argc != 2)
     {
         std::cerr << "Invalid number of arguments!" << std::endl;
-        return -1; 
+        return -1;
     }
 
     cv::Mat image = cv::imread(argv[1]);
@@ -252,14 +316,20 @@ int main(int argc, char** argv)
     
     squares = removeDuplicateRectangles(squares, midpoints);
 
-    drawSquares(image, squares);
+    //drawSquares(image, squares);
     
     for(Point p : midpoints) {
         cout << p.x << " " << p.y << endl;
     }
 
-    waitKey();
 
+    Mat dst, color_dst;
+    std::vector<Vec4i> lines = findLines(image, dst, color_dst);
+
+    removeRedundantLines(lines, squares);
+    drawLines(lines, dst, color_dst);
+
+    waitKey();
 
     return 0;
 }
