@@ -11,26 +11,13 @@
 #include <opencv2/highgui.hpp>
 
 #include <iostream>
+#include <fstream>
 #include <math.h>
 #include <string.h>
 #include <vector>
 
 using namespace cv;
 using namespace std;
-
-static void help()
-{
-    cout <<
-    "\nA program using pyramid scaling, Canny, contours, contour simpification and\n"
-    "memory storage (it's got it all folks) to find\n"
-    "squares in a list of images pic1-6.png\n"
-    "Returns sequence of squares detected on the image.\n"
-    "the sequence is stored in the specified memory storage\n"
-    "Call:\n"
-    "./squares\n"
-    "Using OpenCV version %s\n" << CV_VERSION << "\n" << endl;
-}
-
 
 int thresh = 50, N = 11;
 const char* wndname = "Square Detection Demo";
@@ -95,7 +82,7 @@ bool lineIntersection(
 
 // returns sequence of squares detected on the image.
 // the sequence is stored in the specified memory storage
-static void findSquares( const Mat& image, vector<vector<Point> >& squares, vector<Point> &midpoints )
+static void findSquares( const Mat& image, vector<vector<Point> >& squares, vector<Point2d> &midpoints )
 {
     squares.clear();
 
@@ -192,7 +179,7 @@ static void drawSquares( Mat& image, const vector<vector<Point> >& squares )
     imshow(wndname, image);
 }
 
-vector<vector<Point> > removeDuplicateRectangles(vector<vector<Point> > &squares, vector<Point> &midpoints) {
+vector<vector<Point> > removeDuplicateRectangles(vector<vector<Point> > &squares, vector<Point2d> &midpoints) {
 
     vector<vector<Point> > uniqueRectangles;
     for(vector<Point> approx : squares) 
@@ -206,8 +193,8 @@ vector<vector<Point> > removeDuplicateRectangles(vector<vector<Point> > &squares
 
         //cout << x << " " << y << endl;
 
-        int errorMarginX = 5;
-        int errorMarginY = 5;
+        int errorMarginX = 10;
+        int errorMarginY = 10;
 
         bool duplicate = false;
         for(auto &p : midpoints) 
@@ -277,9 +264,7 @@ void removeRedundantLines(vector<Vec4i> &lines, vector<vector<Point> > &squares)
                    line = lines.erase(line);
                    removed = true;
                    break;
-
                 }
-
             }
         }
 
@@ -288,13 +273,32 @@ void removeRedundantLines(vector<Vec4i> &lines, vector<vector<Point> > &squares)
             ++line;
         }
     }
+}
 
+void rescale_points(std::vector<Point2d>* v)
+{
+    auto iteratorX = std::max_element(v->begin(),
+                                      v->end(),
+                                      [](Point2d p1, Point2d p2)->bool{return p1.x < p2.x;}
+                                      );
+    auto iteratorY = std::max_element(v->begin(),
+                                      v->end(),
+                                      [](Point2d p1, Point2d p2)->bool{return p1.y < p2.y;}
+                                      );
+
+    double newMaxX = 100.0;
+    double newMaxY = 100.0;
+
+    for (auto &e : *v)
+    {
+        e.x = (iteratorX->x/(double)e.x) * newMaxX;
+        e.y = (iteratorY->y/(double)e.y) * newMaxY;
+    }
 }
 
 int main(int argc, char** argv)
 {
-    vector<Point> midpoints;
-    help();
+    vector<Point2d> midpoints;
     namedWindow( wndname, 1 );
     vector<vector<Point> > squares;
 
@@ -318,10 +322,7 @@ int main(int argc, char** argv)
 
     //drawSquares(image, squares);
     
-    for(Point p : midpoints) {
-        cout << p.x << " " << p.y << endl;
-    }
-
+    rescale_points(&midpoints);
 
     Mat dst, color_dst;
     std::vector<Vec4i> lines = findLines(image, dst, color_dst);
@@ -329,6 +330,16 @@ int main(int argc, char** argv)
     removeRedundantLines(lines, squares);
     drawLines(lines, dst, color_dst);
 
+    int i = 0;
+    std::ofstream file("./out.tex");
+    file << "\\documentclass[tikz]{standalone}\n";
+    file << "\\usepackage{tkz-euclide}\n\\usetkzobj{all}\n\\usetikzlibrary{positioning}\n\\usetikzlibrary{fit}\n\\usetikzlibrary{calc}\n";
+    file << "\\begin{document}\n\\begin{tikzpicture}[]\n";
+    for(auto p : midpoints) {
+        file << "\\node[draw, rectangle, minimum size=3cm] ";
+        file << "(" << i++ << ")" << " at (" << p.x << "," << p.y << "){};\n";
+    }
+    file << "\\end{tikzpicture}\n\\end{document}";
     waitKey();
 
     return 0;
