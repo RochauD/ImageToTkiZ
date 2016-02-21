@@ -45,7 +45,7 @@ bool lineIntersection(
     double Bx, double By,
     double Cx, double Cy,
     double Dx, double Dy,
-    double *X, double *Y) {
+    double &X, double &Y) {
 
     double first_x = Ax >= Bx ? Ax : Bx;
     double first_y = Ax >= Bx ? Ay : By;
@@ -53,6 +53,8 @@ bool lineIntersection(
     double second_x = Ax >= Bx ? Bx : Ax;
     double second_y = Ax >= Bx ? By : Ay;
 
+    if(abs(first_x - second_x) < 0.005)
+        return false;
     double m1 = (first_y - second_y) / (first_x - second_x);
     double a1 = first_y - first_x*m1;
 
@@ -62,6 +64,9 @@ bool lineIntersection(
     second_x = Cx >= Dx ? Dx : Cx;
     second_y = Cx >= Dx ? Dy : Cy;
 
+    if(abs(first_x - second_x) < 0.005)
+        return false;
+
     double m2 = (first_y - second_y) / (first_x - second_x);
     double a2 = first_y - first_x*m2; 
 
@@ -70,8 +75,8 @@ bool lineIntersection(
 
     double x = (a2 - a1) / (m1 - m2);
 
-    *X = x;
-    *Y = a1 + m1*x;
+    X = x;
+    Y = a1 + m1*x;
 
     return true; 
 }
@@ -185,7 +190,7 @@ vector<vector<Point> > removeDuplicateRectangles(vector<vector<Point> > &squares
          (double)approx[0].x, (double)approx[0].y,
          (double)approx[2].x, (double)approx[2].y, 
          (double)approx[1].x, (double)approx[1].y, 
-         (double)approx[3].x, (double)approx[3].y, &x, &y);
+         (double)approx[3].x, (double)approx[3].y, x, y);
 
         //cout << x << " " << y << endl;
 
@@ -318,6 +323,67 @@ void removeFrameSizeRectangle(int rows, int cols, vector<vector<Point> > &rectan
     }
 }
 
+pair<pair<int, int>, pair<int, int>> findClosestSide(vector<vector<Point> > &rectangles, vector<Vec4i> &lines)
+{
+
+    for(int i = 0; i < lines.size(); ++i) 
+    {
+        for(int j = 0; j < rectangles.size(); ++j)
+        {
+            for(int k = j+1; k < rectangles.size(); ++k)
+            {
+                double X1;
+                double Y1;
+                double X2;
+                double Y2;
+                bool flag_one = false;
+                bool flag_two = false;
+
+
+                for(int l = 0; l < 4; ++l)
+                {
+
+                    if(lineIntersection(rectangles[j][l].x, rectangles[j][l].y, rectangles[j][(l+1)%4].x, rectangles[j][(l+1)%4].y,
+                        lines[i][0], lines[i][1], lines[i][2], lines[i][3], X1, Y1))
+                    {
+                        flag_one = true;
+                        break;
+                    }
+                }
+
+
+                if(!flag_one)
+                {
+                     break;
+                }
+
+                for(int l = 0; l < 4; ++l)
+                {
+
+                    if(lineIntersection(rectangles[k][l].x, rectangles[k][l].y, rectangles[k][(l+1)%4].x, rectangles[k][(l+1)%4].y,
+                        lines[i][0], lines[i][1], lines[i][2], lines[i][3], X2, Y2))
+                    {
+                        flag_two = true;
+                        break;
+                    }
+                }
+
+                if(!flag_two)
+                {
+                     break;
+                }
+                cout << X1 << " " << Y1 << endl;
+                cout << X2 << " " << Y2 << endl;
+            }
+
+        }
+    }
+
+    pair<pair<int, int>, pair<int, int>> ans;
+    return ans;
+
+}
+
 int main(int argc, char** argv)
 {
     vector<Point2d> midpoints;
@@ -363,6 +429,8 @@ int main(int argc, char** argv)
         file << "(" << i++ << ")" << " at (" << p.x << "," << p.y << "){};\n";
     }
     file << "\\end{tikzpicture}\n\\end{document}";
+
+    findClosestSide(squares, lines);
     getchar();
 
     return 0;
