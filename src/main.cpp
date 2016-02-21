@@ -38,6 +38,8 @@ static double angle( Point pt1, Point pt2, Point pt0 )
  * computes the midpoint of a rectangle
  */
 
+//A and B form a line
+//C and D form a line
 bool lineIntersection(
     double Ax, double Ay,
     double Bx, double By,
@@ -45,39 +47,33 @@ bool lineIntersection(
     double Dx, double Dy,
     double *X, double *Y) {
 
-      double  distAB, theCos, theSin, newX, ABpos ;
+    double first_x = Ax >= Bx ? Ax : Bx;
+    double first_y = Ax >= Bx ? Ay : By;
 
-      //  Fail if either line is undefined.
-      if ((Ax==Bx && Ay==By) || (Cx==Dx && Cy==Dy)) return false;
+    double second_x = Ax >= Bx ? Bx : Ax;
+    double second_y = Ax >= Bx ? By : Ay;
 
-      //  (1) Translate the system so that point A is on the origin.
-      Bx-=Ax; By-=Ay;
-      Cx-=Ax; Cy-=Ay;
-      Dx-=Ax; Dy-=Ay;
+    double m1 = (first_y - second_y) / (first_x - second_x);
+    double a1 = first_y - first_x*m1;
 
-      //  Discover the length of segment A-B.
-      distAB=sqrt(Bx*Bx+By*By);
+    first_x = Cx >= Dx ? Cx : Dx;
+    first_y = Cx >= Dx ? Cy : Dy;
 
-      //  (2) Rotate the system so that point B is on the positive X axis.
-      theCos=Bx/distAB;
-      theSin=By/distAB;
-      newX=Cx*theCos+Cy*theSin;
-      Cy  =Cy*theCos-Cx*theSin; Cx=newX;
-      newX=Dx*theCos+Dy*theSin;
-      Dy  =Dy*theCos-Dx*theSin; Dx=newX;
+    second_x = Cx >= Dx ? Dx : Cx;
+    second_y = Cx >= Dx ? Dy : Cy;
 
-      //  Fail if the lines are parallel.
-      if (Cy==Dy) return false;
+    double m2 = (first_y - second_y) / (first_x - second_x);
+    double a2 = first_y - first_x*m2; 
 
-      //  (3) Discover the position of the intersection point along line A-B.
-      ABpos=Dx+(Cx-Dx)*Dy/(Dy-Cy);
+    if(abs((m2 - m1)) < 0.005)
+        return false;
 
-      //  (4) Apply the discovered position to line A-B in the original coordinate system.
-      *X=Ax+ABpos*theCos;
-      *Y=Ay+ABpos*theSin;
+    double x = (a2 - a1) / (m1 - m2);
 
-      //  Success.
-      return true; 
+    *X = x;
+    *Y = a1 + m1*x;
+
+    return true; 
 }
 
 // returns sequence of squares detected on the image.
@@ -296,6 +292,32 @@ void rescale_points(std::vector<Point2d>* v)
     }
 }
 
+void removeFrameSizeRectangle(int rows, int cols, vector<vector<Point> > &rectangles)
+{
+    int errorMarginX = 20;
+    int errorMarginY = 20;
+    for(auto rect = rectangles.begin(); rect != rectangles.end();)
+    {
+        int maxWidth = 0;
+        int maxHeight = 0;
+        for(int i = 0; i < 4; ++i) 
+        {
+
+            maxWidth = max(abs((*rect)[i].x-(*rect)[(i+1)%4].x), maxWidth);
+            maxHeight = max(abs((*rect)[i].y-(*rect)[(i+1)%4].y), maxHeight);
+
+        }
+
+        cout << rows << " " << cols << endl << maxWidth << " " << maxHeight << endl;
+        if((maxWidth + errorMarginX) > cols && (maxHeight + errorMarginY) > rows)
+        {
+            rect = rectangles.erase(rect);
+        } else {
+            ++rect;
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     vector<Point2d> midpoints;
@@ -327,6 +349,7 @@ int main(int argc, char** argv)
     Mat dst, color_dst;
     std::vector<Vec4i> lines = findLines(image, dst, color_dst);
 
+    //removeFrameSizeRectangle(image.rows, image.cols, squares);
     removeRedundantLines(lines, squares);
     drawLines(lines, dst, color_dst);
 
@@ -340,7 +363,7 @@ int main(int argc, char** argv)
         file << "(" << i++ << ")" << " at (" << p.x << "," << p.y << "){};\n";
     }
     file << "\\end{tikzpicture}\n\\end{document}";
-    waitKey();
+    getchar();
 
     return 0;
 }
